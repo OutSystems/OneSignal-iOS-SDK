@@ -28,24 +28,37 @@
 #import "OneSignalNotificationServiceExtensionHandler.h"
 #import "OneSignalExtensionBadgeHandler.h"
 #import "OneSignalHelper.h"
+#import "OSInfluenceDataDefines.h"
 #import "OneSignalTrackFirebaseAnalytics.h"
 #import "OSNotificationPayload+Internal.h"
+#import "OSSubscription.h"
+#import "OneSignalInternal.h"
+#import "OneSignalReceiveReceiptsController.h"
+#import "OSSessionManager.h"
 
 @implementation OneSignalNotificationServiceExtensionHandler
 
-+(UNMutableNotificationContent*)didReceiveNotificationExtensionRequest:(UNNotificationRequest*)request
-                                        withMutableNotificationContent:(UNMutableNotificationContent*)replacementContent {
++ (UNMutableNotificationContent*)didReceiveNotificationExtensionRequest:(UNNotificationRequest*)request
+                                         withMutableNotificationContent:(UNMutableNotificationContent*)replacementContent {
+    // Set default log level of NSE to VERBOSE so we get all logs from NSE logic
+    [OneSignal setLogLevel:ONE_S_LL_VERBOSE visualLevel:ONE_S_LL_NONE];
+    [OneSignal onesignal_Log:ONE_S_LL_VERBOSE message:@"NSE request received, setting OneSignal log level to VERBOSE!"];
+    
     if (!replacementContent)
         replacementContent = [request.content mutableCopy];
     
     let payload = [OSNotificationPayload parseWithApns:request.content.userInfo];
-    
-    //handle badge count
+
+    // Handle badge count
     [OneSignalExtensionBadgeHandler handleBadgeCountWithNotificationRequest:request withNotificationPayload:payload withMutableNotificationContent:replacementContent];
     
     // Track receieved
     [OneSignalTrackFirebaseAnalytics trackReceivedEvent:payload];
     
+    // Get and check the received notification id
+    let receivedNotificationId = payload.notificationID;
+    [self onNotificationReceived:receivedNotificationId];
+
     // Action Buttons
     [self addActionButtonsToExtentionRequest:request
                                  withPayload:payload
@@ -57,8 +70,8 @@
     return replacementContent;
 }
 
-+(UNMutableNotificationContent*)serviceExtensionTimeWillExpireRequest:(UNNotificationRequest*)request
-                                       withMutableNotificationContent:(UNMutableNotificationContent*)replacementContent {
++ (UNMutableNotificationContent*)serviceExtensionTimeWillExpireRequest:(UNNotificationRequest*)request
+                                        withMutableNotificationContent:(UNMutableNotificationContent*)replacementContent {
     if (!replacementContent)
         replacementContent = [request.content mutableCopy];
     
@@ -71,14 +84,25 @@
     return replacementContent;
 }
 
-+(void)addActionButtonsToExtentionRequest:(UNNotificationRequest*)request
++ (void)addActionButtonsToExtentionRequest:(UNNotificationRequest*)request
                                withPayload:(OSNotificationPayload*)payload
             withMutableNotificationContent:(UNMutableNotificationContent*)replacementContent {
+    
     // If the developer already set a category don't replace it with our generated one.
     if (request.content.categoryIdentifier && ![request.content.categoryIdentifier isEqualToString:@""])
         return;
     
     [OneSignalHelper addActionButtons:payload toNotificationContent:replacementContent];
+}
+
++ (void)onNotificationReceived:(NSString *)receivedNotificationId {
+    if (receivedNotificationId && ![receivedNotificationId isEqualToString:@""]) {
+        // Track confirmed delivery
+        [OneSignal.receiveReceiptsController sendReceiveReceiptWithNotificationId:receivedNotificationId];
+        [OneSignal onesignal_Log:ONE_S_LL_VERBOSE message:[NSString stringWithFormat:@"NSE request received, sessionManager: %@", [OneSignal sessionManager]]];
+        // Save received notification id
+        [[OneSignal sessionManager] onNotificationReceived:receivedNotificationId];
+   }
 }
 
 @end

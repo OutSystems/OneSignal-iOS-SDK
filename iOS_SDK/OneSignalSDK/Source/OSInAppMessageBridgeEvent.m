@@ -31,7 +31,7 @@
 
 @implementation OSInAppMessageBridgeEvent
 
-+(instancetype)instanceWithData:(NSData *)data {
++ (instancetype)instanceWithData:(NSData *)data {
     NSError *error;
     NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&error];
     
@@ -43,7 +43,7 @@
     return [OSInAppMessageBridgeEvent instanceWithJson:json];
 }
 
-+(instancetype)instanceWithJson:(NSDictionary *)json {
++ (instancetype)instanceWithJson:(NSDictionary *)json {
     let instance = [OSInAppMessageBridgeEvent new];
     
     if ([json[@"type"] isKindOfClass:[NSString class]] && OS_IS_VALID_BRIDGE_EVENT_TYPE(json[@"type"]))
@@ -74,15 +74,19 @@
     return instance;
 }
 
+- (NSString *)description{
+    return [NSString stringWithFormat:@"OSInAppMessageBridgeEvent type: %lu\nrenderingComplete: %@\nresize: %@\nuserAction: %@", (unsigned long)_type, _renderingComplete, _resize, _userAction];
+}
+
 @end
 
 
 @implementation OSInAppMessageBridgeEventRenderingComplete
-+(instancetype)instanceWithData:(NSData *)data {
++ (instancetype)instanceWithData:(NSData *)data {
     return nil;
 }
 
-+(instancetype)instanceWithJson:(NSDictionary *)json {
++ (instancetype)instanceWithJson:(NSDictionary *)json {
     let instance = [OSInAppMessageBridgeEventRenderingComplete new];
     
     if (json[@"displayLocation"])
@@ -95,19 +99,27 @@
     
     return instance;
 }
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"OSInAppMessageBridgeEventRenderingComplete height: %@\ndisplayLocation: %lu", _height, (unsigned long)_displayLocation];
+}
 @end
 
 @implementation OSInAppMessageBridgeEventResize
-+(instancetype)instanceWithData:(NSData *)data {
++ (instancetype)instanceWithData:(NSData *)data {
     return nil;
 }
 
-+(instancetype)instanceWithJson:(NSDictionary *)json {
++ (instancetype)instanceWithJson:(NSDictionary *)json {
     let instance = [OSInAppMessageBridgeEventResize new];
     
     if (json[@"pageMetaData"][@"rect"][@"height"])
         instance.height = json[@"pageMetaData"][@"rect"][@"height"];
     
     return instance;
+}
+
+- (NSString *)description {
+    return [NSString stringWithFormat:@"OSInAppMessageBridgeEventResize height: %@", _height];
 }
 @end

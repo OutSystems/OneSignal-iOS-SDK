@@ -56,10 +56,10 @@
 - (void)loadedHtmlContent:(NSString *)html withBaseURL:(NSURL *)url {
     // UI Update must be done on the main thread
     NSLog(@"11111 [self.webView loadHTMLString:html baseURL:url];");
-     dispatch_sync(dispatch_get_main_queue(), ^{
-         NSLog(@"222222 [self.webView loadHTMLString:html baseURL:url];");
-         [self.webView loadHTMLString:html baseURL:url];
-     });
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        NSLog(@"222222 [self.webView loadHTMLString:html baseURL:url];");
+        [self.webView loadHTMLString:html baseURL:url];
+    });
 }
 
 - (void)setupWebviewWithMessageHandler:(id<WKScriptMessageHandler>)handler {
@@ -104,7 +104,7 @@
             return;
         }
         NSString *successMessage = [NSString stringWithFormat:@"Javascript Method: %@ Evaluated with Success: %@", OS_JS_GET_PAGE_META_DATA_METHOD, result];
-        [OneSignal onesignal_Log:ONE_S_LL_DEBUG message:successMessage];
+        [OneSignal onesignal_Log:ONE_S_LL_VERBOSE message:successMessage];
         
         [self setupWebViewConstraints];
 
@@ -119,6 +119,8 @@
 }
 
 - (void)setupWebViewConstraints {
+    [OneSignal onesignal_Log:ONE_S_LL_VERBOSE message:@"Setting up In-App Message WebView Constraints"];
+    
     [self.webView removeConstraints:[self.webView constraints]];
     
     self.webView.translatesAutoresizingMaskIntoConstraints = false;

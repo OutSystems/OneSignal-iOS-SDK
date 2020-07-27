@@ -29,12 +29,9 @@
 // This project exisits to make testing OneSignal SDK changes.
 
 #import "AppDelegate.h"
-
-#import <FirebaseAnalytics/FIRApp.h>
-#import <FirebaseAnalytics/FIRAnalytics.h>
+#import "ViewController.h"
 
 @implementation AppDelegate
-
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     
@@ -42,7 +39,7 @@
     
     NSLog(@"Bundle URL: %@", [[NSBundle mainBundle] bundleURL]);
     
-    [OneSignal setLogLevel:ONE_S_LL_VERBOSE visualLevel:ONE_S_LL_ERROR];
+    [OneSignal setLogLevel:ONE_S_LL_VERBOSE visualLevel:ONE_S_LL_NONE];
     
     OneSignal.inFocusDisplayType = OSNotificationDisplayTypeInAppAlert;
     
@@ -59,15 +56,9 @@
     
     // Example block for IAM action click handler
     id inAppMessagingActionClickBlock = ^(OSInAppMessageAction *action) {
-        NSString *message = [NSString stringWithFormat:@"Click Action Occurred: clickName:%@ clickUrl:%@ firstClick:%i closesMessage:%i",
-                             action.clickName,
-                             action.clickUrl,
-                             action.firstClick,
-                             action.closesMessage];
+        NSString *message = [NSString stringWithFormat:@"Click Action Occurred: %@", [action jsonRepresentation]];
         [OneSignal onesignal_Log:ONE_S_LL_DEBUG message:message];
     };
-
-    [OneSignal setSubscription:true];
 
     // Example setter for IAM action click handler using OneSignal public method
     [OneSignal setInAppMessageClickHandler:inAppMessagingActionClickBlock];
@@ -79,7 +70,8 @@
                             settings:@{kOSSettingsKeyAutoPrompt: @false,
                                        kOSSettingsKeyInAppLaunchURL: @true}];
     
-    [OneSignal promptLocation];
+//    [OneSignal setLocationShared:false];
+    
     [OneSignal sendTag:@"someKey1122" value:@"03222017"];
 
     [OneSignal addPermissionObserver:self];
@@ -108,19 +100,18 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-- (void) onOSSubscriptionChanged:(OSSubscriptionStateChanges*)stateChanges {
-    NSLog(@"onOSSubscriptionChanged: %@", stateChanges);
-    NSLog(@"HERE");
-}
-
 - (void) onOSPermissionChanged:(OSPermissionStateChanges*)stateChanges {
     NSLog(@"onOSPermissionChanged: %@", stateChanges);
-    NSLog(@"HERE");
 }
 
--(void)onOSEmailSubscriptionChanged:(OSEmailSubscriptionStateChanges *)stateChanges {
+- (void) onOSSubscriptionChanged:(OSSubscriptionStateChanges*)stateChanges {
+    NSLog(@"onOSSubscriptionChanged: %@", stateChanges);
+    ViewController* mainController = (ViewController*) self.window.rootViewController;
+    mainController.subscriptionSegmentedControl.selectedSegmentIndex = (NSInteger) stateChanges.to.subscribed;
+}
+
+- (void)onOSEmailSubscriptionChanged:(OSEmailSubscriptionStateChanges *)stateChanges {
     NSLog(@"onOSEmailSubscriptionChanged: %@", stateChanges);
-    
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {

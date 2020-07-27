@@ -1,7 +1,7 @@
 /**
  * Modified MIT License
  *
- * Copyright 2016 OneSignal
+ * Copyright 2019 OneSignal
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,55 +27,138 @@
 
 #import <Foundation/Foundation.h>
 #import "OneSignalUserDefaults.h"
+#import "OneSignalExtensionBadgeHandler.h"
 
 @implementation OneSignalUserDefaults : NSObject
 
-/*
- Method for checking if a key exists in NSUserDefaults
- */
-+ (BOOL)keyExists:(NSString *)key {
-    // Check if the object for a key is nil or not
-    return [NSUserDefaults.standardUserDefaults objectForKey:key] != nil;
++ (OneSignalUserDefaults * _Nonnull)initStandard {
+    OneSignalUserDefaults *instance = [OneSignalUserDefaults new];
+    instance.userDefaults = [instance getStandardUserDefault];
+    return instance;
 }
 
-/*
- Save a set in NSUserDefaults with a key
- */
-+ (void)saveBool:(BOOL)boolean withKey:(NSString *)key {
-    [NSUserDefaults.standardUserDefaults setBool:boolean forKey:key];
-    [NSUserDefaults.standardUserDefaults synchronize];
++ (OneSignalUserDefaults * _Nonnull)initShared {
+    OneSignalUserDefaults *instance = [OneSignalUserDefaults new];
+    instance.userDefaults = [instance getSharedUserDefault];
+    return instance;
 }
 
-/*
- Get a set from NSUserDefaults with a key
- */
-+ (BOOL)getSavedBool:(NSString *)key default:(BOOL)boolean {
-    // If the key exists in NSUserDefaults return the set
-    if ([OneSignalUserDefaults keyExists:key])
-        return (BOOL) [NSUserDefaults.standardUserDefaults boolForKey:key];
+- (NSUserDefaults* _Nonnull)getStandardUserDefault {
+    return NSUserDefaults.standardUserDefaults;
+}
+
+- (NSUserDefaults* _Nonnull)getSharedUserDefault {
+    return [[NSUserDefaults alloc] initWithSuiteName:[self appGroupKey]];
+}
+
+- (NSString * _Nonnull)appGroupKey {
+    return [OneSignalExtensionBadgeHandler appGroupName];
+}
+
+- (BOOL)keyExists:(NSString * _Nonnull)key {
+    return [self.userDefaults objectForKey:key] != nil;
+}
+
+- (void)removeValueForKey:(NSString * _Nonnull)key {
+    [self.userDefaults removeObjectForKey:key];
+    [self.userDefaults synchronize];
+}
+
+- (BOOL)getSavedBoolForKey:(NSString * _Nonnull)key defaultValue:(BOOL)value {
+    if ([self keyExists:key])
+        return (BOOL) [self.userDefaults boolForKey:key];
     
-    // Return default boolean passed in if no boolean for key exists
-    return boolean;
+    return value;
 }
 
-/*
- Save a set in NSUserDefaults with a key
- */
-+ (void)saveSet:(NSSet *)set withKey:(NSString *)key {
-    [NSUserDefaults.standardUserDefaults setObject:[set allObjects] forKey:key];
-    [NSUserDefaults.standardUserDefaults synchronize];
+- (void)saveBoolForKey:(NSString * _Nonnull)key withValue:(BOOL)value {
+    [self.userDefaults setBool:value forKey:key];
+    [self.userDefaults synchronize];
 }
 
-/*
- Get a set from NSUserDefaults with a key
- */
-+ (NSSet *)getSavedSet:(NSString *)key {
-    // If the key exists in NSUserDefaults return the set
-    if ([OneSignalUserDefaults keyExists:key])
-        return [NSSet setWithArray:[NSUserDefaults.standardUserDefaults arrayForKey:key]];
+- (NSString * _Nullable)getSavedStringForKey:(NSString * _Nonnull)key defaultValue:(NSString * _Nullable)value {
+    if ([self keyExists:key])
+        return [self.userDefaults stringForKey:key];
     
-    // Return new empty set if no set for key exists
-    return [NSSet new];
+    return value;
+}
+
+- (void)saveStringForKey:(NSString * _Nonnull)key withValue:(NSString * _Nullable)value {
+    [self.userDefaults setObject:value forKey:key];
+    [self.userDefaults synchronize];
+}
+
+// NOTE: NSInteger because NSUserDefaults returns NSInteger when using integerForKey method
+- (NSInteger)getSavedIntegerForKey:(NSString * _Nonnull)key defaultValue:(NSInteger)value {
+    if ([self keyExists:key])
+        return [self.userDefaults integerForKey:key];
+        
+    return value;
+}
+
+- (void)saveIntegerForKey:(NSString * _Nonnull)key withValue:(NSInteger)value {
+    [self.userDefaults setInteger:value forKey:key];
+    [self.userDefaults synchronize];
+}
+
+- (double)getSavedDoubleForKey:(NSString * _Nonnull)key defaultValue:(double)value {
+    if ([self keyExists:key])
+        return [self.userDefaults doubleForKey:key];
+    
+    return value;
+}
+
+- (void)saveDoubleForKey:(NSString * _Nonnull)key withValue:(double)value {
+    [self.userDefaults setDouble:value forKey:key];
+    [self.userDefaults synchronize];
+}
+
+- (NSSet * _Nullable)getSavedSetForKey:(NSString * _Nonnull)key defaultValue:(NSSet * _Nullable)value {
+    if ([self keyExists:key])
+        return [NSSet setWithArray:[self.userDefaults arrayForKey:key]];
+    
+    return value;
+}
+
+- (void)saveSetForKey:(NSString * _Nonnull)key withValue:(NSSet * _Nullable)value {
+    [self.userDefaults setObject:[value allObjects] forKey:key];
+    [self.userDefaults synchronize];
+}
+
+- (NSDictionary * _Nullable)getSavedDictionaryForKey:(NSString * _Nonnull)key defaultValue:(NSDictionary * _Nullable)value {
+    if ([self keyExists:key])
+        return [self.userDefaults dictionaryForKey:key];
+
+    return value;
+}
+
+- (void)saveDictionaryForKey:(NSString * _Nonnull)key withValue:(NSSet * _Nullable)value {
+    [self.userDefaults setObject:value forKey:key];
+    [self.userDefaults synchronize];
+}
+
+- (id _Nullable)getSavedObjectForKey:(NSString *)key defaultValue:(id _Nullable)value {
+    if ([self keyExists:key])
+        return [self.userDefaults objectForKey:key];
+    
+    return value;
+}
+
+- (void)saveObjectForKey:(NSString * _Nonnull)key withValue:(id _Nullable)object {
+    [self.userDefaults setObject:object forKey:key];
+    [self.userDefaults synchronize];
+}
+
+- (id _Nullable)getSavedCodeableDataForKey:(NSString * _Nonnull)key defaultValue:(id _Nullable)value {
+    if ([self keyExists:key])
+        return [NSKeyedUnarchiver unarchiveObjectWithData:[self.userDefaults objectForKey:key]];
+    
+    return value;
+}
+
+- (void)saveCodeableDataForKey:(NSString * _Nonnull)key withValue:(id _Nullable)value {
+    [self.userDefaults setObject:[NSKeyedArchiver archivedDataWithRootObject:value] forKey:key];
+    [self.userDefaults synchronize];
 }
 
 @end

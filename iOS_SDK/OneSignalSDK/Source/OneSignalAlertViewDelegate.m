@@ -37,6 +37,7 @@
 @interface OneSignal ()
 
 + (void)handleNotificationOpened:(NSDictionary*)messageDict
+                      foreground:(BOOL)foreground
                         isActive:(BOOL)isActive
                       actionType:(OSNotificationActionType)actionType
                      displayType:(OSNotificationDisplayType)displayType;
@@ -67,11 +68,10 @@
     
     // Message received that was displayed (Foreground + InAppAlert is true)
     // Call received callback
-    [OneSignalHelper handleNotificationReceived:OSNotificationDisplayTypeInAppAlert];
+    [OneSignalHelper handleNotificationReceived:OSNotificationDisplayTypeInAppAlert fromBackground:NO];
 }
 
 @end
-
 
 @implementation OneSignalAlertViewDelegate
 
@@ -131,9 +131,10 @@ static NSMutableArray* delegateReference;
         mMessageDict = userInfo;
     }
     
-    [OneSignal handleNotificationOpened:mMessageDict isActive:YES actionType:actionType displayType:OSNotificationDisplayTypeInAppAlert];
+    [OneSignal handleNotificationOpened:mMessageDict foreground:YES isActive:YES actionType:actionType displayType:OSNotificationDisplayTypeInAppAlert];
     
     [delegateReference removeObject:self];
 }
 
 @end
+

@@ -27,6 +27,7 @@
 
 #import <Foundation/Foundation.h>
 #import "Requests.h"
+#import "OSOutcomeEvent.h"
 #import "OneSignalRequest.h"
 #import "OneSignalHelper.h"
 #import "OneSignalCommonDefines.h"
@@ -214,10 +215,10 @@
 @end
 
 @implementation OSRequestSubmitNotificationOpened
-+ (instancetype)withUserId:(NSString *)userId appId:(NSString *)appId wasOpened:(BOOL)opened messageId:(NSString *)messageId {
++ (instancetype)withUserId:(NSString *)userId appId:(NSString *)appId wasOpened:(BOOL)opened messageId:(NSString *)messageId withDeviceType:(nonnull NSNumber *)deviceType{
     let request = [OSRequestSubmitNotificationOpened new];
     
-    request.parameters = @{@"player_id" : userId ?: [NSNull null], @"app_id" : appId ?: [NSNull null], @"opened" : @(opened)};
+    request.parameters = @{@"player_id" : userId ?: [NSNull null], @"app_id" : appId ?: [NSNull null], @"opened" : @(opened), @"device_type": deviceType};
     request.method = PUT;
     request.path = [NSString stringWithFormat:@"notifications/%@", messageId];
     
@@ -280,9 +281,13 @@
 }
 @end
 
-@implementation OSRequestOnFocus
-+ (instancetype _Nonnull)withUserId:(NSString * _Nonnull)userId appId:(NSString * _Nonnull)appId badgeCount:(NSNumber * _Nonnull)badgeCount emailAuthToken:(NSString * _Nullable)emailAuthHash {
-    let request = [OSRequestOnFocus new];
+@implementation OSRequestBadgeCount
+
++ (instancetype _Nonnull)withUserId:(NSString * _Nonnull)userId
+                              appId:(NSString * _Nonnull)appId
+                         badgeCount:(NSNumber * _Nonnull)badgeCount
+                     emailAuthToken:(NSString * _Nullable)emailAuthHash {
+    let request = [OSRequestBadgeCount new];
     
     let params = [NSMutableDictionary new];
     params[@"app_id"] = appId;
@@ -298,17 +303,61 @@
     return request;
 }
 
-+ (instancetype _Nonnull)withUserId:(NSString * _Nonnull)userId appId:(NSString * _Nonnull)appId state:(NSString * _Nonnull)state type:(NSNumber * _Nonnull)type activeTime:(NSNumber * _Nonnull)activeTime netType:(NSNumber * _Nonnull)netType emailAuthToken:(NSString * _Nullable)emailAuthHash {
+@end
+
+@implementation OSRequestOnFocus
+
+NSString * const IS_DIRECT = @"direct";
+NSString * const NOTIFICATION_IDS = @"notification_ids";
+
++ (instancetype)withUserId:(NSString *)userId
+                     appId:(NSString *)appId
+                activeTime:(NSNumber *)activeTime
+                   netType:(NSNumber *)netType
+            emailAuthToken:(NSString *)emailAuthHash
+                deviceType:(NSNumber * _Nonnull)deviceType {
     let request = [OSRequestOnFocus new];
-    
-    
+
     let params = [NSMutableDictionary new];
     params[@"app_id"] = appId;
-    params[@"state"] = state;
-    params[@"type"] = type;
+    params[@"state"] = @"ping";
+    params[@"type"] = @1;
     params[@"active_time"] = activeTime;
     params[@"net_type"] = netType;
+    params[@"device_type"] = deviceType;
+
+    if (emailAuthHash && emailAuthHash.length > 0)
+        params[@"email_auth_hash"] = emailAuthHash;
+
+    request.parameters = params;
+    request.method = POST;
+    request.path = [NSString stringWithFormat:@"players/%@/on_focus", userId];
+
+    return request;
+}
+
++ (instancetype)withUserId:(NSString *)userId
+                     appId:(NSString *)appId
+                activeTime:(NSNumber *)activeTime
+                   netType:(NSNumber *)netType
+            emailAuthToken:(NSString *)emailAuthHash
+                deviceType:(NSNumber *)deviceType
+           influenceParams:(NSArray <OSFocusInfluenceParam *> *)influenceParams {
+    let request = [OSRequestOnFocus new];
+
+    let params = [NSMutableDictionary new];
+    params[@"app_id"] = appId;
+    params[@"state"] = @"ping";
+    params[@"type"] = @1;
+    params[@"active_time"] = activeTime;
+    params[@"net_type"] = netType;
+    params[@"device_type"] = deviceType;
     
+    for (OSFocusInfluenceParam *influenceParam in influenceParams) {
+        params[influenceParam.influenceKey] = influenceParam.influenceIds;
+        params[influenceParam.influenceDirectKey] = @(influenceParam.directInfluence);
+    }
+
     if (emailAuthHash && emailAuthHash.length > 0)
         params[@"email_auth_hash"] = emailAuthHash;
     
@@ -318,6 +367,7 @@
     
     return request;
 }
+
 @end
 
 @implementation OSRequestInAppMessageViewed
@@ -405,6 +455,116 @@
     request.parameters = @{@"app_id" : appId, @"external_user_id" : externalId ?: @""};
     request.method = PUT;
     request.path = [NSString stringWithFormat:@"players/%@", userId];
+
+    return request;
+}
+@end
+
+@implementation OSRequestReceiveReceipts
+
++ (instancetype _Nonnull)withPlayerId:(NSString *)playerId notificationId:(NSString *)notificationId appId:(NSString *)appId {
+    let request = [OSRequestReceiveReceipts new];
+    
+    request.parameters = @{@"app_id": appId, @"player_id": playerId ?: [NSNull null]};
+    request.method = PUT;
+    request.path = [NSString stringWithFormat:@"notifications/%@/report_received", notificationId];
+
+    return request;
+}
+
+@end
+
+@implementation OSRequestSendOutcomesV1ToServer
+NSString * const APP_ID = @"app_id";
+NSString * const DEVICE = @"device_type";
+NSString * const OUTCOME_ID = @"id";
+NSString * const WEIGHT = @"weight";
+
++ (instancetype _Nonnull)directWithOutcome:(OSOutcomeEvent * _Nonnull)outcome
+                                     appId:(NSString * _Nonnull)appId
+                                deviceType:(NSNumber * _Nonnull)deviceType {
+    let request = [OSRequestSendOutcomesV1ToServer new];
+
+    let params = [NSMutableDictionary new];
+    params[APP_ID] = appId;
+    params[DEVICE] = deviceType;
+    params[IS_DIRECT] = @YES;
+    params[OUTCOME_ID] = outcome.name;
+
+    if (outcome.notificationIds && [outcome.notificationIds count] > 0)
+        params[NOTIFICATION_IDS] = outcome.notificationIds;
+
+    if ([outcome.weight doubleValue] > 0)
+        params[WEIGHT] = outcome.weight;
+
+    request.parameters = params;
+    request.method = POST;
+    request.path = @"outcomes/measure";
+
+    return request;
+}
+
++ (instancetype _Nonnull)indirectWithOutcome:(OSOutcomeEvent * _Nonnull)outcome
+                                       appId:(NSString * _Nonnull)appId
+                                  deviceType:(NSNumber * _Nonnull)deviceType {
+    let request = [OSRequestSendOutcomesV1ToServer new];
+
+    let params = [NSMutableDictionary new];
+    params[APP_ID] = appId;
+    params[DEVICE] = deviceType;
+    params[IS_DIRECT] = @NO;
+    params[OUTCOME_ID] = outcome.name;
+
+    if (outcome.notificationIds && [outcome.notificationIds count] > 0)
+        params[NOTIFICATION_IDS] = outcome.notificationIds;
+
+    if ([outcome.weight doubleValue] > 0)
+        params[WEIGHT] = outcome.weight;
+
+    request.parameters = params;
+    request.method = POST;
+    request.path = @"outcomes/measure";
+
+    return request;
+}
+
++ (instancetype _Nonnull)unattributedWithOutcome:(OSOutcomeEvent * _Nonnull)outcome
+                                           appId:(NSString * _Nonnull)appId
+                                      deviceType:(NSNumber * _Nonnull)deviceType {
+    let request = [OSRequestSendOutcomesV1ToServer new];
+
+    let params = [NSMutableDictionary new];
+    params[APP_ID] = appId;
+    params[DEVICE] = deviceType;
+
+    params[OUTCOME_ID] = outcome.name;
+
+    if ([outcome.weight doubleValue] > 0)
+        params[WEIGHT] = outcome.weight;
+
+    request.parameters = params;
+    request.method = POST;
+    request.path = @"outcomes/measure";
+
+    return request;
+}
+
+@end
+
+@implementation OSRequestSendOutcomesV2ToServer
+NSString * const OUTCOME_SOURCE = @"source";
+
++ (instancetype)measureOutcomeEvent:(OSOutcomeEventParams *)outcome appId:(NSString *)appId deviceType:(NSNumber *)deviceType {
+    let request = [OSRequestSendOutcomesV2ToServer new];
+    
+    let params = [NSMutableDictionary new];
+    params[APP_ID] = appId;
+    params[DEVICE] = deviceType;
+    [params addEntriesFromDictionary:[outcome toDictionaryObject]];
+    
+    request.parameters = params;
+    request.method = POST;
+    request.path = @"outcomes/measure_sources";
 
     return request;
 }

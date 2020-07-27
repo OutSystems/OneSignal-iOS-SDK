@@ -25,6 +25,7 @@
  * THE SOFTWARE.
  */
 
+#import <sys/utsname.h>
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <CommonCrypto/CommonDigest.h>
@@ -40,6 +41,8 @@
 #import "OneSignalDialogController.h"
 #import "OSMessagingController.h"
 #import "OneSignalNotificationCategoryController.h"
+#import "OneSignalUserDefaults.h"
+#import "OneSignalReceiveReceiptsController.h"
 
 #define NOTIFICATION_TYPE_ALL 7
 #pragma clang diagnostic push
@@ -51,6 +54,9 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
+@interface OneSignal ()
++ (NSString*)mUserId;
+@end
 
 @interface DirectDownloadDelegate : NSObject <NSURLSessionDataDelegate> {
     NSError* error;
@@ -72,8 +78,13 @@
     [outputHandle writeData:data];
 }
 
--(void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveResponse:(NSURLResponse *)aResponse completionHandler:(void (^)(NSURLSessionResponseDisposition))completionHandler {
+- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveResponse:(NSURLResponse *)aResponse completionHandler:(void (^)(NSURLSessionResponseDisposition))completionHandler {
     response = aResponse;
+    long long expectedLength = response.expectedContentLength;
+    if (expectedLength > MAX_NOTIFICATION_MEDIA_SIZE_BYTES) { //Enforcing 50 mb limit on media before downloading
+        completionHandler(NSURLSessionResponseCancel);
+        return;
+    }
     completionHandler(NSURLSessionResponseAllow);
 }
 
@@ -276,9 +287,13 @@
 
 @implementation OneSignalHelper
 
+static var lastMessageID = @"";
+static NSString *_lastMessageIdFromAction;
+
 + (void)resetLocals {
     [OneSignalHelper lastMessageReceived:nil];
     _lastMessageIdFromAction = nil;
+    lastMessageID = @"";
 }
 
 UIBackgroundTaskIdentifier mediaBackgroundTask;
@@ -315,9 +330,12 @@ OSHandleNotificationActionBlock handleNotificationAction;
     lastMessageReceived = message;
 }
 
-+ (void)notificationBlocks:(OSHandleNotificationReceivedBlock)receivedBlock :(OSHandleNotificationActionBlock)actionBlock {
-    handleNotificationReceived = receivedBlock;
-    handleNotificationAction = actionBlock;
++(void)setNotificationActionBlock:(OSHandleNotificationActionBlock)block {
+    handleNotificationAction = block;
+}
+
++(void)setNotificationReceivedBlock:(OSHandleNotificationReceivedBlock)block {
+    handleNotificationReceived = block;
 }
 
 + (NSString*)getAppName {
@@ -393,24 +411,29 @@ OSHandleNotificationActionBlock handleNotificationAction;
     return payload[@"custom"][@"i"] || payload[@"os_data"][@"i"];
 }
 
-+ (void)handleNotificationReceived:(OSNotificationDisplayType)displayType {
-    if (!handleNotificationReceived || ![self isOneSignalPayload:lastMessageReceived])
++ (void)handleNotificationReceived:(OSNotificationDisplayType)displayType fromBackground:(BOOL)background {
+    if (![self isOneSignalPayload:lastMessageReceived])
         return;
     
-    OSNotificationPayload *payload = [OSNotificationPayload parseWithApns:lastMessageReceived];
-    OSNotification *notification = [[OSNotification alloc] initWithPayload:payload displayType:displayType];
+    let payload = [OSNotificationPayload parseWithApns:lastMessageReceived];
+    if ([self handleIAMPreview:payload])
+        return;
     
+    // The payload is a valid OneSignal notification payload and is not a preview
+    // Proceed and treat as a normal OneSignal notification
+    let notification = [[OSNotification alloc] initWithPayload:payload displayType:displayType];
+
     // Prevent duplicate calls to same receive event
-    static NSString* lastMessageID = @"";
     if ([payload.notificationID isEqualToString:lastMessageID])
         return;
     lastMessageID = payload.notificationID;
 
-    if (![self handleIAMPreview:payload] && handleNotificationReceived)
-        handleNotificationReceived(notification);
-}
+    [OneSignal onesignal_Log:ONE_S_LL_VERBOSE
+                     message:[NSString stringWithFormat:@"handleNotificationReceived lastMessageID: %@ displayType: %lu",lastMessageID, (unsigned long)displayType]];
 
-static NSString *_lastMessageIdFromAction;
+    if (handleNotificationReceived)
+       handleNotificationReceived(notification);
+}
 
 + (void)handleNotificationAction:(OSNotificationActionType)actionType actionID:(NSString*)actionID displayType:(OSNotificationDisplayType)displayType {
     if (![self isOneSignalPayload:lastMessageReceived])
@@ -436,6 +459,8 @@ static NSString *_lastMessageIdFromAction;
 + (BOOL)handleIAMPreview:(OSNotificationPayload *)payload {
     NSString *uuid = [payload additionalData][ONESIGNAL_IAM_PREVIEW];
     if (uuid) {
+
+        [OneSignal onesignal_Log:ONE_S_LL_VERBOSE message:@"IAM Preview Detected, Begin Handling"];
         OSInAppMessage *message = [OSInAppMessage instancePreviewFromPayload:payload];
         [[OSMessagingController sharedInstance] presentInAppPreviewMessage:message];
         return YES;
@@ -461,6 +486,34 @@ static NSString *_lastMessageIdFromAction;
 
 + (BOOL)isIOSVersionLessThan:(NSString *)version {
     return [[self getCurrentDeviceVersion] compare:version options:NSNumericSearch] == NSOrderedAscending;
+}
+
++ (NSString*) getSystemInfoMachine {
+    // e.g. @"x86_64" or @"iPhone9,3"
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    return [NSString stringWithCString:systemInfo.machine
+                                         encoding:NSUTF8StringEncoding];
+}
+
+// This will get real device model if it is a real iOS device (Example iPhone8,2)
+// If an iOS Simulator it will return "Simulator iPhone" or "Simulator iPad"
+// If a macOS Catalyst app, return "Mac"
++ (NSString*)getDeviceVariant {
+    let systemInfoMachine = [self getSystemInfoMachine];
+
+    // x86_64 could mean an iOS Simulator or Catalyst app on macOS
+    if ([systemInfoMachine isEqualToString:@"x86_64"]) {
+        let systemName = UIDevice.currentDevice.systemName;
+        if ([systemName isEqualToString:@"iOS"]) {
+            let model = UIDevice.currentDevice.model;
+            return [@"Simulator " stringByAppendingString:model];
+        } else {
+            return @"Mac";
+        }
+    }
+
+    return systemInfoMachine;
 }
 
 // Can call currentUserNotificationSettings
@@ -617,26 +670,31 @@ static OneSignal* singleInstance = nil;
     var allCategories = OneSignalNotificationCategoryController.sharedInstance.existingCategories;
     
     let newCategoryIdentifier = [OneSignalNotificationCategoryController.sharedInstance registerNotificationCategoryForNotificationId:payload.notificationID];
-
     let category = [UNNotificationCategory categoryWithIdentifier:newCategoryIdentifier
                                                           actions:finalActionArray
                                                 intentIdentifiers:@[]
                                                           options:UNNotificationCategoryOptionCustomDismissAction];
-    
+
     if (allCategories) {
         let newCategorySet = [NSMutableSet new];
         for(UNNotificationCategory *existingCategory in allCategories) {
             if (![existingCategory.identifier isEqualToString:newCategoryIdentifier])
                 [newCategorySet addObject:existingCategory];
         }
-        
+
         [newCategorySet addObject:category];
         allCategories = newCategorySet;
     }
     else
         allCategories = [[NSMutableSet alloc] initWithArray:@[category]];
+
+    [UNUserNotificationCenter.currentNotificationCenter setNotificationCategories:allCategories];
     
-    [[UNUserNotificationCenter currentNotificationCenter] setNotificationCategories:allCategories];
+    // List Categories again so iOS refreshes it's internal list.
+    // Required otherwise buttons will not display or won't update.
+    // This is a blackbox assumption, the delay on the main thread this call creates might be giving
+    //   some iOS background thread time to flush to disk.
+    allCategories = OneSignalNotificationCategoryController.sharedInstance.existingCategories;
     
     content.categoryIdentifier = newCategoryIdentifier;
 }
@@ -723,29 +781,14 @@ static OneSignal* singleInstance = nil;
 /*
  Synchroneously downloads an attachment
  On success returns bundle resource name, otherwise returns nil
- The preference order for file type determination is as follows:
-    1. File extension in the actual URL
-    2. MIME type
-    3. URL Query parameter called 'filename', such as test.jpg. The SDK will extract the file extension from it
 */
-+ (NSString*)downloadMediaAndSaveInBundle:(NSString*)urlString {
++ (NSString *)downloadMediaAndSaveInBundle:(NSString *)urlString {
     
     let url = [NSURL URLWithString:urlString];
-    
-    NSString* extension = url.pathExtension;
-    
-    if ([extension isEqualToString:@""])
-        extension = nil;
-    
-    // Unrecognized extention
-    if (extension != nil && ![ONESIGNAL_SUPPORTED_ATTACHMENT_TYPES containsObject:extension])
-        return nil;
-    
+     
+    //Download the file
     var name = [self randomStringWithLength:10];
-    
-    if (extension)
-        name = [name stringByAppendingString:[NSString stringWithFormat:@".%@", extension]];
-    
+        
     NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     NSString* filePath = [paths[0] stringByAppendingPathComponent:name];
     
@@ -759,32 +802,25 @@ static OneSignal* singleInstance = nil;
             [OneSignal onesignal_Log:ONE_S_LL_ERROR message:[NSString stringWithFormat:@"Encountered an error while attempting to download file with URL: %@", error]];
             return nil;
         }
+
+        NSString *extension = [OneSignalHelper getSupportedFileExtensionFromURL:url mimeType:mimeType];
+        if (!extension || [extension isEqualToString:@""])
+            return nil;
         
-        if (!extension) {
-            NSString *newExtension;
-            
-            if (mimeType != nil && ![mimeType isEqualToString:@""]) {
-                newExtension = mimeType.fileExtensionForMimeType;
-            } else {
-                newExtension = [[[NSURL URLWithString:urlString] valueFromQueryParameter:@"filename"] supportedFileExtension];
-            }
-            
-            if (!newExtension || ![ONESIGNAL_SUPPORTED_ATTACHMENT_TYPES containsObject:newExtension])
-                return nil;
-            
-            name = [NSString stringWithFormat:@"%@.%@", name, newExtension];
-            
-            let newPath = [paths[0] stringByAppendingPathComponent:[NSString stringWithFormat:@"%@", name]];
-            
-            [[NSFileManager defaultManager] moveItemAtPath:filePath toPath:newPath error:&error];
-        }
+        name = [NSString stringWithFormat:@"%@.%@", name, extension];
+        
+        let newPath = [paths[0] stringByAppendingPathComponent:[NSString stringWithFormat:@"%@", name]];
+        
+        [[NSFileManager defaultManager] moveItemAtPath:filePath toPath:newPath error:&error];
         
         if (error) {
             [OneSignal onesignal_Log:ONE_S_LL_ERROR message:[NSString stringWithFormat:@"Encountered an error while attempting to download file with URL: %@", error]];
             return nil;
         }
-        
-        NSArray* cachedFiles = [[NSUserDefaults standardUserDefaults] objectForKey:@"CACHED_MEDIA"];
+         
+        let standardUserDefaults = OneSignalUserDefaults.initStandard;
+         
+        NSArray* cachedFiles = [standardUserDefaults getSavedObjectForKey:OSUD_TEMP_CACHED_NOTIFICATION_MEDIA defaultValue:nil];
         NSMutableArray* appendedCache;
         if (cachedFiles) {
             appendedCache = [[NSMutableArray alloc] initWithArray:cachedFiles];
@@ -792,21 +828,58 @@ static OneSignal* singleInstance = nil;
         }
         else
             appendedCache = [[NSMutableArray alloc] initWithObjects:name, nil];
-        
-        [[NSUserDefaults standardUserDefaults] setObject:appendedCache forKey:@"CACHED_MEDIA"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
+         
+        [standardUserDefaults saveObjectForKey:OSUD_TEMP_CACHED_NOTIFICATION_MEDIA withValue:appendedCache];
         return name;
     } @catch (NSException *exception) {
         [OneSignal onesignal_Log:ONE_S_LL_ERROR message:[NSString stringWithFormat:@"OneSignal encountered an exception while downloading file (%@), exception: %@", url, exception.description]];
         
         return nil;
     }
-
 }
 
-+(void)clearCachedMedia {
+
+/*
+ The preference order for file type determination is as follows:
+    1. URL Query parameter called 'filename', such as test.jpg. The SDK will extract the file extension from it
+    2. MIME type
+    3. File extension in the actual URL
+    4. A file extension extracted by searching through all URL Query parameters
+ */
++ (NSString *)getSupportedFileExtensionFromURL:(NSURL *)url mimeType:(NSString *)mimeType {
+    //Try to get extension from the filename parameter
+    NSString* extension = [[url valueFromQueryParameter:@"filename"]
+                            supportedFileExtension];
+    if (extension && [ONESIGNAL_SUPPORTED_ATTACHMENT_TYPES containsObject:extension]) {
+        return extension;
+    }
+    //Use the MIME type for the extension
+    if (mimeType != nil && ![mimeType isEqualToString:@""]) {
+        extension = mimeType.fileExtensionForMimeType;
+        if (extension && [ONESIGNAL_SUPPORTED_ATTACHMENT_TYPES containsObject:extension]) {
+            return extension;
+        }
+    }
+    //Try using url.pathExtension
+    extension =  url.pathExtension;
+    if (extension && [ONESIGNAL_SUPPORTED_ATTACHMENT_TYPES containsObject:extension]) {
+        return extension;
+    }
+    //Try getting an extension from the query
+    extension = url.supportedFileExtensionFromQueryItems;
+    if (extension && [ONESIGNAL_SUPPORTED_ATTACHMENT_TYPES containsObject:extension]) {
+        return extension;
+    }
+    return nil;
+}
+
+// TODO: Add back after testing
++ (void)clearCachedMedia {
     /*
-    NSArray* cachedFiles = [[NSUserDefaults standardUserDefaults] objectForKey:@"CACHED_MEDIA"];
+    if (!NSClassFromString(@"UNUserNotificationCenter"))
+      return;
+     
+    NSArray* cachedFiles = [[NSUserDefaults standardUserDefaults] objectForKey:OSUD_TEMP_CACHED_NOTIFICATION_MEDIA];
     if (cachedFiles) {
         NSArray * paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
         for (NSString* file in cachedFiles) {
@@ -814,7 +887,7 @@ static OneSignal* singleInstance = nil;
             NSError* error;
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:&error];
         }
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"CACHED_MEDIA"];
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:OSUD_TEMP_CACHED_NOTIFICATION_MEDIA];
     }
      */
 }
@@ -835,15 +908,8 @@ static OneSignal* singleInstance = nil;
 }
 
 + (void) displayWebView:(NSURL*)url {
-    
     // Check if in-app or safari
-    __block BOOL inAppLaunch = YES;
-    if( ![[NSUserDefaults standardUserDefaults] objectForKey:@"ONESIGNAL_INAPP_LAUNCH_URL"]) {
-        [[NSUserDefaults standardUserDefaults] setObject:@YES forKey:@"ONESIGNAL_INAPP_LAUNCH_URL"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
-    }
-    
-    inAppLaunch = [[[NSUserDefaults standardUserDefaults] objectForKey:@"ONESIGNAL_INAPP_LAUNCH_URL"] boolValue];
+    __block BOOL inAppLaunch = [OneSignalUserDefaults.initStandard getSavedBoolForKey:OSUD_NOTIFICATION_OPEN_LAUNCH_URL defaultValue:true];
     
     // If the URL contains itunes.apple.com, it's an app store link
     // that should be opened using sharedApplication openURL
@@ -877,8 +943,8 @@ static OneSignal* singleInstance = nil;
         let openAction = NSLocalizedString(@"Open", @"Allows the user to open the URL/website");
         let cancelAction = NSLocalizedString(@"Cancel", @"The user won't open the URL/website");
         
-        [[OneSignalDialogController sharedInstance] presentDialogWithTitle:title withMessage:message withAction:openAction cancelTitle:cancelAction withActionCompletion:^(BOOL tappedAction) {
-            openUrlBlock(tappedAction);
+        [[OneSignalDialogController sharedInstance] presentDialogWithTitle:title withMessage:message withActions:@[openAction] cancelTitle:cancelAction withActionCompletion:^(int tappedActionIndex) {
+            openUrlBlock(tappedActionIndex > -1);
         }];
     } else {
         openUrlBlock(true);

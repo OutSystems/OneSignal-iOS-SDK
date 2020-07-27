@@ -43,6 +43,7 @@
 #import "OneSignalOverrider.h"
 #import "OSInAppMessageAction.h"
 #import "OSInAppMessageBridgeEvent.h"
+#import "UIDeviceOverrider.h"
 /**
  Test to make sure that OSInAppMessage correctly
  implements the OSJSONDecodable protocol
@@ -55,19 +56,22 @@
 
 @implementation InAppMessagingTests {
     OSInAppMessage *testMessage;
+    OSInAppMessage *testMessageRedisplay;
     OSInAppMessageAction *testAction;
     OSInAppMessageBridgeEvent *testBridgeEvent;
 }
 
+NSInteger const LIMIT = 5;
+NSInteger const DELAY = 60;
+
 // called before each test
 -(void)setUp {
     [super setUp];
+    [UnitTestCommonMethods beforeEachTest:self];
     
     NSTimerOverrider.shouldScheduleTimers = false;
     
-    [UnitTestCommonMethods clearStateForAppRestart:self];
-    
-    testMessage = [OSInAppMessageTestHelper testMessageWithTriggersJson:@[
+    let trigger = @[
         @[
             @{
                 @"id" : @"test_trigger_id",
@@ -77,7 +81,10 @@
                 @"value" : @"home_vc"
             }
         ]
-    ]];
+    ];
+    
+    testMessage = [OSInAppMessageTestHelper testMessageWithTriggersJson:trigger];
+    testMessageRedisplay = [OSInAppMessageTestHelper testMessageWithTriggersJson:trigger redisplayLimit:LIMIT delay:[NSNumber numberWithInteger:DELAY]];
     
     testBridgeEvent = [OSInAppMessageBridgeEvent instanceWithJson:@{
         @"type" : @"action_taken",
@@ -92,15 +99,91 @@
     testAction = testBridgeEvent.userAction;
     
     self.triggerController = [OSTriggerController new];
+    
+    [OneSignalHelperOverrider reset];
+    
+    [UIDeviceOverrider reset];
 }
 
 -(void)tearDown {
     NSTimerOverrider.shouldScheduleTimers = true;
 }
 
+-(void)testIphoneSimulator {
+    OneSignalHelperOverrider.mockIOSVersion = 10;
+    [OSMessagingController removeInstance];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, OSMessagingController.class);
+}
+
+-(void)testIpadSimulator {
+    OneSignalHelperOverrider.mockIOSVersion = 10;
+    [OSMessagingController removeInstance];
+    [UIDeviceOverrider setModel:@"iPad"];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, OSMessagingController.class);
+}
+
+-(void)testOldUnsupportedIphoneSimulator {
+    OneSignalHelperOverrider.mockIOSVersion = 9;
+    [OSMessagingController removeInstance];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, DummyOSMessagingController.class); // sharedInstance should be dummy controller
+}
+
+-(void)testOldUnsupportedIpadSimulator {
+    OneSignalHelperOverrider.mockIOSVersion = 8;
+    [OSMessagingController removeInstance];
+    [UIDeviceOverrider setModel:@"iPad"];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, DummyOSMessagingController.class); // sharedInstance should be dummy controller
+}
+
+-(void)testUnsupportedCatalyst {
+    OneSignalHelperOverrider.mockIOSVersion = 10;
+    [OSMessagingController removeInstance];
+    [OneSignalHelperOverrider setSystemInfoMachine:@"x86_64"];
+    [UIDeviceOverrider setSystemName:@"Mac OS X"]; // e.g. @"Mac OS X" @"iOS"
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, DummyOSMessagingController.class); // sharedInstance should be dummy controller
+}
+
+-(void)testRealIphone {
+    OneSignalHelperOverrider.mockIOSVersion = 10;
+    [OSMessagingController removeInstance];
+    [OneSignalHelperOverrider setSystemInfoMachine:@"iPhone9,3"];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, OSMessagingController.class);
+}
+
+-(void)testRealUnsupportedIphone {
+    OneSignalHelperOverrider.mockIOSVersion = 8;
+    [OSMessagingController removeInstance];
+    [OneSignalHelperOverrider setSystemInfoMachine:@"iPhone9,3"];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, DummyOSMessagingController.class); // sharedInstance should be dummy controller
+}
+
+-(void)testRealIpad {
+    OneSignalHelperOverrider.mockIOSVersion = 13;
+    [OSMessagingController removeInstance];
+    [OneSignalHelperOverrider setSystemInfoMachine:@"iPad6,7"];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, OSMessagingController.class);
+}
+
+-(void)testRealUnsupportedIpad {
+    OneSignalHelperOverrider.mockIOSVersion = 8;
+    [OSMessagingController removeInstance];
+    [OneSignalHelperOverrider setSystemInfoMachine:@"iPad6,7"];
+    let sharedInstance = OSMessagingController.sharedInstance;
+    XCTAssertEqualObjects(sharedInstance.class, DummyOSMessagingController.class); // sharedInstance should be dummy controller
+}
+
 #pragma mark Message JSON Parsing Tests
 -(void)testCorrectlyParsedMessageId {
     XCTAssertTrue([testMessage.messageId containsString:OS_TEST_MESSAGE_ID]);
+    XCTAssertTrue([testMessageRedisplay.messageId containsString:OS_TEST_MESSAGE_ID]);
 }
 
 -(void)testCorrectlyParsedVariants {
@@ -109,11 +192,76 @@
 }
 
 -(void)testCorrectlyParsedTriggers {
-    XCTAssertTrue(testMessage.triggers.count == 1);
+    XCTAssertEqual(1, testMessage.triggers.count);
     XCTAssertEqual(testMessage.triggers.firstObject.firstObject.operatorType, OSTriggerOperatorTypeEqualTo);
     XCTAssertEqualObjects(testMessage.triggers.firstObject.firstObject.kind, @"view_controller");
     XCTAssertEqualObjects(testMessage.triggers.firstObject.firstObject.value, @"home_vc");
     XCTAssertEqualObjects(testMessage.triggers.firstObject.firstObject.triggerId, @"test_trigger_id");
+}
+
+- (void)testCorrectlyParsedDisplayStats {
+    XCTAssertEqual(testMessageRedisplay.displayStats.displayLimit, LIMIT);
+    XCTAssertEqual(testMessageRedisplay.displayStats.displayDelay, DELAY);
+    XCTAssertEqual(testMessageRedisplay.displayStats.displayQuantity, 0);
+    XCTAssertEqual(testMessageRedisplay.displayStats.lastDisplayTime, -1);
+    XCTAssertTrue(testMessageRedisplay.displayStats.isRedisplayEnabled);
+    
+    XCTAssertEqual(testMessage.displayStats.displayLimit, NSIntegerMax);
+    XCTAssertEqual(testMessage.displayStats.displayDelay, 0);
+    XCTAssertEqual(testMessage.displayStats.displayQuantity, 0);
+    XCTAssertEqual(testMessage.displayStats.lastDisplayTime, -1);
+    XCTAssertFalse(testMessage.displayStats.isRedisplayEnabled);
+}
+
+- (void)testCorrectlyDisplayStatsLimit {
+    for (int i = 0; i < LIMIT; i++) {
+        XCTAssertTrue([testMessageRedisplay.displayStats shouldDisplayAgain]);
+        [testMessageRedisplay.displayStats incrementDisplayQuantity];
+    }
+    
+    [testMessageRedisplay.displayStats incrementDisplayQuantity];
+    XCTAssertFalse([testMessageRedisplay.displayStats shouldDisplayAgain]);
+}
+
+- (void)testCorrectlyDisplayStatsDelay {
+    NSDateComponents* comps = [[NSDateComponents alloc]init];
+    comps.year = 2019;
+    comps.month = 6;
+    comps.day = 10;
+    comps.hour = 10;
+    comps.minute = 1;
+
+    NSCalendar* calendar = [NSCalendar currentCalendar];
+    NSDate* date = [calendar dateFromComponents:comps];
+    NSTimeInterval currentTime = [date timeIntervalSince1970];
+       
+    XCTAssertTrue([testMessageRedisplay.displayStats isDelayTimeSatisfied:currentTime]);
+    
+    testMessageRedisplay.displayStats.lastDisplayTime = currentTime - DELAY;
+    XCTAssertTrue([testMessageRedisplay.displayStats isDelayTimeSatisfied:currentTime]);
+    
+    testMessageRedisplay.displayStats.lastDisplayTime = currentTime - DELAY + 1;
+    XCTAssertFalse([testMessageRedisplay.displayStats isDelayTimeSatisfied:currentTime]);
+}
+
+- (void)testCorrectlyClickIds {
+    let clickId = @"click_id";
+    XCTAssertTrue([testMessageRedisplay isClickAvailable:clickId]);
+    
+    [testMessageRedisplay addClickId:clickId];
+    XCTAssertFalse([testMessageRedisplay isClickAvailable:clickId]);
+
+    [testMessageRedisplay clearClickIds];
+    XCTAssertTrue([testMessageRedisplay isClickAvailable:clickId]);
+   
+    // Test on a IAM without redisplay
+    XCTAssertTrue([testMessage isClickAvailable:clickId]);
+    
+    [testMessage addClickId:clickId];
+    XCTAssertFalse([testMessage isClickAvailable:clickId]);
+
+    [testMessage clearClickIds];
+    XCTAssertTrue([testMessage isClickAvailable:clickId]);
 }
 
 - (void)testCorrectlyParsedActionId {
@@ -351,10 +499,14 @@
 }
 
 - (void)testDynamicTriggerWithExactTimeTrigger {
-    let trigger = [OSTrigger dynamicTriggerWithKind:OS_DYNAMIC_TRIGGER_KIND_MIN_TIME_SINCE withOperator:OSTriggerOperatorTypeEqualTo withValue:@([[NSDate date] timeIntervalSince1970])];
+    let trigger = [OSTrigger
+        dynamicTriggerWithKind:OS_DYNAMIC_TRIGGER_KIND_MIN_TIME_SINCE
+                  withOperator:OSTriggerOperatorTypeEqualTo
+                     withValue:@([[NSDate date] timeIntervalSince1970])
+    ];
     
     OSDynamicTriggerController *controller = [OSDynamicTriggerController new];
-    controller.timeSinceLastMessage = [NSDate dateWithTimeIntervalSince1970:0];
+    controller.timeSinceLastMessage = [NSDate dateWithTimeIntervalSince1970:1];
     let triggered = [controller dynamicTriggerShouldFire:trigger withMessageId:@"test_id"];
 
     XCTAssertTrue(triggered);
