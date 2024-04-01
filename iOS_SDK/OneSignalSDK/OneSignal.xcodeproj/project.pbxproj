@@ -75,6 +75,7 @@
 		454F94F21FAD218000D74CCF /* OneSignalNotificationServiceExtensionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 454F94F11FAD218000D74CCF /* OneSignalNotificationServiceExtensionHandler.m */; };
 		454F94F51FAD2E5A00D74CCF /* OSNotificationPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = 454F94F41FAD2E5A00D74CCF /* OSNotificationPayload.m */; };
 		5B58E4F8237CE7B4009401E0 /* UIDeviceOverrider.m in Sources */ = {isa = PBXBuildFile; fileRef = 5B58E4F6237CE7B4009401E0 /* UIDeviceOverrider.m */; };
+		7599D0DD2BBAE90F00FF2DED /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7599D0DC2BBAE78B00FF2DED /* PrivacyInfo.xcprivacy */; };
 		7A123295235DFE3B002B6CE3 /* OutcomeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A123294235DFE3B002B6CE3 /* OutcomeTests.m */; };
 		7A1232A2235E1743002B6CE3 /* OneSignal.m in Sources */ = {isa = PBXBuildFile; fileRef = 912411F11E73342200E41FD7 /* OneSignal.m */; };
 		7A1232A4235E175C002B6CE3 /* OneSignalOutcomeEventsController.h in Headers */ = {isa = PBXBuildFile; fileRef = 7ADE379522E8B70700263048 /* OneSignalOutcomeEventsController.h */; };
@@ -502,6 +503,7 @@
 		454F94F61FAD2EC300D74CCF /* OSNotificationPayload+Internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OSNotificationPayload+Internal.h"; sourceTree = "<group>"; };
 		5B58E4F3237CE7B3009401E0 /* UIDeviceOverrider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UIDeviceOverrider.h; sourceTree = "<group>"; };
 		5B58E4F6237CE7B4009401E0 /* UIDeviceOverrider.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UIDeviceOverrider.m; sourceTree = "<group>"; };
+		7599D0DC2BBAE78B00FF2DED /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7A123294235DFE3B002B6CE3 /* OutcomeTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OutcomeTests.m; sourceTree = "<group>"; };
 		7A12EBD523060A6F005C4FA5 /* OSSessionManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSSessionManager.m; sourceTree = "<group>"; };
 		7A12EBD623060A6F005C4FA5 /* OSSessionManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSSessionManager.h; sourceTree = "<group>"; };
@@ -1091,6 +1093,7 @@
 				CAABF34A205B15780042F8E5 /* OneSignalExtensionBadgeHandler.m */,
 				CAAEA68621ED68A40049CF15 /* OneSignalNotificationCategoryController.h */,
 				CAAEA68521ED68A30049CF15 /* OneSignalNotificationCategoryController.m */,
+				7599D0DC2BBAE78B00FF2DED /* PrivacyInfo.xcprivacy */,
 			);
 			path = Source;
 			sourceTree = "<group>";
@@ -1485,6 +1488,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7599D0DD2BBAE90F00FF2DED /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
