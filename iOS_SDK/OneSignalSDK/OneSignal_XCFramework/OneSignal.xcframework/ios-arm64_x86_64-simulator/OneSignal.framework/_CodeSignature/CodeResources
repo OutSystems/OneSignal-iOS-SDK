@@ -10,7 +10,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		ore99QAJm5zrkeogZGlY92McejI=
+		0jPupFMs8ahXmq86onQ/JUitdis=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -21,10 +21,6 @@
 	<dict>
 		<key>Headers/OneSignal.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			EVXphtkVA0pG/wCKXUqT8Br0olg=
-			</data>
 			<key>hash2</key>
 			<data>
 			g07y/lXKM6H7TbypgKgFMT7K/hNdd1g4dcYnbX+edSE=
@@ -32,10 +28,6 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			fJj0ATF9ohjya70dUZjH6i9w44o=
-			</data>
 			<key>hash2</key>
 			<data>
 			Gn6ZaR3ERppbMM1cYIPVzhn7nRrRbOZoQYYdkOd4nJw=
