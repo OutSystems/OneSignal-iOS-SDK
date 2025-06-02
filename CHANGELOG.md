@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The changes documented here do not include those from the original repository.
 
+## [2.16.7+1.0.1]
+
+### Fixes
+
+- Fix deeplink handling for iOS 18 by using new openURL function (https://outsystemsrd.atlassian.net/browse/RMET-4238).
+
 ## [2.16.7+1.0.0]
 
 ### Features
