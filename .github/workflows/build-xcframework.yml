@@ -1,0 +1,46 @@
+name: Build XCFramework
+
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - 'iOS_SDK/OneSignalSDK/**'
+      - '!iOS_SDK/OneSignalSDK/OneSignal_XCFramework/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Add execute permissions to build script
+        run: chmod +x iOS_SDK/OneSignalSDK/build_xcframework.sh
+
+      - name: Build XCFramework
+        run: ./iOS_SDK/OneSignalSDK/build_xcframework.sh
+
+      - name: Check for XCFramework changes
+        id: diff
+        run: |
+          git diff --quiet iOS_SDK/OneSignalSDK/OneSignal_XCFramework/ || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push updated XCFramework
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add iOS_SDK/OneSignalSDK/OneSignal_XCFramework/
+          git commit -m "chore: rebuild XCFramework"
+          git push
