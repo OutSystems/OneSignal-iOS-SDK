@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The changes documented here do not include those from the original repository.
 
+## [2.16.7-test.1]
+
+### Features
+
+- Add `Package.swift` for Swift Package Manager support (RMET-5135).
+- Fix podspec `s.source` to reference OutSystems fork.
+
 ## [2.16.7+1.0.1]
 
 ### Fixes
