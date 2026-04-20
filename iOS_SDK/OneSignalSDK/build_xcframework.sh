@@ -44,4 +44,4 @@ xcodebuild -create-xcframework \
 
 rm -rf "${SIMULATOR_ARCHIVE_PATH}"
 rm -rf "${IOS_DEVICE_ARCHIVE_PATH}"
-open "${WORKING_DIR}/${FRAMEWORK_FOLDER_NAME}"
+echo "Created ${FRAMEWORK_PATH}"
