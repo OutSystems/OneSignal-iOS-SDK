@@ -3,11 +3,10 @@ name: Build XCFramework
 on:
   push:
     branches:
-      - '*'
+      - '**'
     paths:
       - 'iOS_SDK/OneSignalSDK/**'
       - '!iOS_SDK/OneSignalSDK/OneSignal_XCFramework/**'
-  workflow_dispatch:
 
 jobs:
   build:
@@ -29,7 +28,8 @@ jobs:
         run: chmod +x iOS_SDK/OneSignalSDK/build_xcframework.sh
 
       - name: Build XCFramework
-        run: ./iOS_SDK/OneSignalSDK/build_xcframework.sh
+        run: ./build_xcframework.sh
+        working-directory: iOS_SDK/OneSignalSDK
 
       - name: Check for XCFramework changes
         id: diff
