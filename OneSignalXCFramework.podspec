@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
     s.author           = { "Joseph Kalash" => "joseph@onesignal.com", "Josh Kasten" => "josh@onesignal.com" , "Brad Hesse" => "brad@onesignal.com"}
     
     s.source           = { :git => "https://github.com/OutSystems/OneSignal-iOS-SDK.git", :tag => s.version.to_s }
-    s.platform     = :ios, '12.0'
+    s.platform     = :ios, '15.0'
     s.requires_arc = true
     
     s.ios.vendored_frameworks = 'iOS_SDK/OneSignalSDK/OneSignal_XCFramework/OneSignal.xcframework'
