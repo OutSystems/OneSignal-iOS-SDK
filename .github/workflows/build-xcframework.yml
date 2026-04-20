@@ -7,7 +7,6 @@ on:
     paths:
       - 'iOS_SDK/OneSignalSDK/**'
       - '!iOS_SDK/OneSignalSDK/OneSignal_XCFramework/**'
-  workflow_dispatch:
 
 jobs:
   build:
