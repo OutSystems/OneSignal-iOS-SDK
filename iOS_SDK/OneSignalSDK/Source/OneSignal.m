@@ -926,7 +926,7 @@ void onesignal_Log(ONE_S_LOG_LEVEL logLevel, NSString* message) {
     }
 }
 
-//presents the settings page to control/customize push notification settings; test 2
+//presents the settings page to control/customize push notification settings; test 3
 + (void)presentAppSettings {
     
     //only supported in 10+
