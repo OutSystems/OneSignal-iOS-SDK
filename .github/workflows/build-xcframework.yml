@@ -3,7 +3,7 @@ name: Build XCFramework
 on:
   push:
     branches:
-      - '*'
+      - '**'
     paths:
       - 'iOS_SDK/OneSignalSDK/**'
       - '!iOS_SDK/OneSignalSDK/OneSignal_XCFramework/**'
