@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-WORKING_DIR=$(pwd)
+WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 FRAMEWORK_FOLDER_NAME="OneSignal_XCFramework"
 
