@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The changes documented here do not include those from the original repository.
 
+## [2.16.7-outsystems.1]
+
+### Features
+
+- Add `Package.swift` for Swift Package Manager support (https://outsystemsrd.atlassian.net/browse/RMET-5135).
+
+### Fixes
+
+- Fix podspec `s.source` to reference OutSystems fork.
+- Build xcframework with Xcode 16.
+- Correct release tag to be in accordance with semantic versioning.
+
 ## [2.16.7+1.0.1]
 
 ### Fixes
