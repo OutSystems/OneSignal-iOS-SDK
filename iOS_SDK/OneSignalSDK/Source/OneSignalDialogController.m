@@ -29,6 +29,7 @@
 #import "OneSignalHelper.h"
 #import "OneSignalDialogRequest.h"
 #import "OneSignalAlertViewDelegate.h"
+#import "UIApplication+OneSignal.h"
 
 /*
  This class handles displaying all dialogs (alerts) for the SDK
@@ -164,7 +165,7 @@
     }
     
     //iOS 8 and later
-    let rootViewController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
+    let rootViewController = [UIApplication firstKeyWindowForConnectedScenes].rootViewController;
     
     let controller = [UIAlertController alertControllerWithTitle:request.title message:request.message preferredStyle:UIAlertControllerStyleAlert];
     

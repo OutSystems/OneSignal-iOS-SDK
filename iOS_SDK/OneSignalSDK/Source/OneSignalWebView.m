@@ -29,6 +29,7 @@
 #import "OneSignalWebView.h"
 #import "OneSignal.h"
 #import "OneSignalHelper.h"
+#import "UIApplication+OneSignal.h"
 
 @interface OneSignal ()
 
@@ -121,7 +122,7 @@ UIViewController *viewControllerForPresentation;
         return;
     }
     
-    UIWindow* mainWindow = [[UIApplication sharedApplication] keyWindow];
+    UIWindow* mainWindow = [UIApplication firstKeyWindowForConnectedScenes];
     
     if (!viewControllerForPresentation.view.superview) {
         [mainWindow addSubview:[viewControllerForPresentation view]];

@@ -29,4 +29,5 @@
 @interface UIApplication (OneSignal)
 + (BOOL)applicationIsActive;
 + (BOOL)isAppUsingUIScene;
++ (nullable UIWindow *)firstKeyWindowForConnectedScenes;
 @end
