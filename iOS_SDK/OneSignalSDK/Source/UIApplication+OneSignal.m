@@ -53,9 +53,19 @@
 + (UIWindow *)firstKeyWindowForConnectedScenes {
     if (@available(iOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]] &&
+                scene.activationState == UISceneActivationStateForegroundActive) {
+                for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+                    if (window.isKeyWindow) {
+                        return window;
+                    }
+                }
+            }
+        }
+        // fall back to any connected scene if none is foreground-active yet
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if ([scene isKindOfClass:[UIWindowScene class]]) {
-                UIWindowScene *windowScene = (UIWindowScene *)scene;
-                for (UIWindow *window in windowScene.windows) {
+                for (UIWindow *window in ((UIWindowScene *)scene).windows) {
                     if (window.isKeyWindow) {
                         return window;
                     }
