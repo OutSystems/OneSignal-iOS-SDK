@@ -36,6 +36,7 @@
 #import "OSInAppMessagePrompt.h"
 #import "OneSignalCommonDefines.h"
 #import "OneSignalDialogController.h"
+#import "UIApplication+OneSignal.h"
 
 @interface OneSignal ()
 
@@ -708,7 +709,7 @@ static BOOL _isInAppMessagingPaused = false;
     if (@available(iOS 13.0, *)) {
         // The below lines can be replace with this single line once Xcode 10 support is dropped
         // window.windowScene = UIApplication.sharedApplication.keyWindow.windowScene;
-        UIWindow *keyWindow = UIApplication.sharedApplication.keyWindow;
+        UIWindow *keyWindow = [UIApplication firstKeyWindowForConnectedScenes];
         id windowScene = [keyWindow performSelector:@selector(windowScene)];
         [window performSelector:@selector(setWindowScene:) withObject:windowScene];
     }

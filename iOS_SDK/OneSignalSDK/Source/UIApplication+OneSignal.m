@@ -33,7 +33,7 @@
 + (BOOL)applicationIsActive {
     if ([self isAppUsingUIScene]) {
         if (@available(iOS 13.0, *)) {
-            UIWindow *keyWindow = UIApplication.sharedApplication.keyWindow;
+            UIWindow *keyWindow = [UIApplication firstKeyWindowForConnectedScenes];
             id windowScene = [keyWindow performSelector:@selector(windowScene)];
             id session = [windowScene performSelector:@selector(session)];
             id scene = [session performSelector:@selector(scene)];
@@ -48,6 +48,33 @@
         return [[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIApplicationSceneManifest"] != nil;
     }
     return NO;
+}
+
++ (UIWindow *)firstKeyWindowForConnectedScenes {
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]] &&
+                scene.activationState == UISceneActivationStateForegroundActive) {
+                for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+                    if (window.isKeyWindow) {
+                        return window;
+                    }
+                }
+            }
+        }
+        // fall back to any connected scene if none is foreground-active yet
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+                    if (window.isKeyWindow) {
+                        return window;
+                    }
+                }
+            }
+        }
+        return nil;
+    }
+    return UIApplication.sharedApplication.keyWindow;
 }
 
 @end
